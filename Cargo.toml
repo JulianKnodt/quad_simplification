@@ -1,0 +1,10 @@
+[package]
+name = "quad_collapse"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.7", features = ["derive"] }
+ordered-float = "4.2.0"
+pars3d = { git = "https://github.com/JulianKnodt/pars3d.git" }
+priority-queue = "2.0.3"
