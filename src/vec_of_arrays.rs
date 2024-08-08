@@ -1,6 +1,6 @@
 /// An index into a vector of arrays.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash, Default)]
-struct VecOfArraysIdx {
+pub struct VecOfArraysIdx {
     num_vertices: u8,
     idx: u32,
 }

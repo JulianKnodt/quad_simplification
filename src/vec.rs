@@ -100,9 +100,11 @@ pub fn tri_area(a: [F; 3], b: [F; 3], c: [F; 3]) -> F {
     length(cross(sub(a, b), sub(a, c))) / 2.
 }
 
+/// Computes the quad area given a set of vertices.
 #[inline]
 pub fn quad_area([q0, q1, q2, q3]: [[F; 3]; 4]) -> F {
-    0.5 * length(sub(q1, q3)) * length(sub(q0, q2))
+    tri_area(q0, q1, q2) + tri_area(q0, q2, q3)
+    //0.5 * length(sub(q1, q3)) * length(sub(q0, q2))
 }
 
 #[inline]
