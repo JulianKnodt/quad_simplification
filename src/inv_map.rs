@@ -31,7 +31,7 @@ impl InverseMap {
             }
             curr = self.next[curr];
         }
-        return false;
+        false
     }
     pub fn merged(&self, v0: usize) -> impl Iterator<Item = usize> + '_ {
         let mut curr = self.next[v0];

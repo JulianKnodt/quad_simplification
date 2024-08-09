@@ -1,6 +1,8 @@
 use crate::inv_map::InverseMap;
 use crate::union_find::UnionFind;
 
+use std::cmp::minmax;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FaceKind {
     Degenerate,
@@ -88,18 +90,13 @@ impl FaceKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum EdgeKind {
+    #[default]
     Empty,
     Boundary(usize),
     Manifold([usize; 2]),
     NonManifold(Vec<usize>),
-}
-
-impl Default for EdgeKind {
-    fn default() -> Self {
-        EdgeKind::Empty
-    }
 }
 
 impl EdgeKind {
@@ -239,8 +236,9 @@ impl<T: Copy> CollapsibleManifold<T> {
         if v0 == v1 {
             return;
         }
-        let [v0, v1] = std::cmp::minmax(v0, v1);
+        let [v0, v1] = minmax(v0, v1);
         self.edges[v0].push(v1);
+        self.edges[v1].push(v0);
     }
 
     pub fn add_face(&mut self, face: &[usize]) {
@@ -256,30 +254,25 @@ impl<T: Copy> CollapsibleManifold<T> {
             .map(|&dst| self.vertices.get_compress(dst))
     }
 
-    pub fn merge(&mut self, v0: usize, v1: usize, merge: impl Fn(T, T) -> T) {
+    pub fn merge(&mut self, v0: usize, v1: usize, merge: impl Fn(T, &mut T)) {
         assert_ne!(v0, v1);
-        let [src, dst] = std::cmp::minmax(v0, v1);
-        assert_eq!(self.vertices.get(src), src);
-        assert_eq!(self.vertices.get(dst), dst);
+        let [src, dst] = minmax(v0, v1);
+        assert!(!self.deleted(src));
+        assert!(!self.deleted(dst));
 
         self.vertices.set(src, dst);
 
         self.inv_map.merge(src, dst);
 
-        self.data[dst] = merge(self.data[dst], self.data[src]);
+        merge(self.data[src], &mut self.data[dst]);
         self.data[src] = self.data[dst];
 
         // correctly set adjacent faces for each edge below
         let mut src_e = std::mem::take(&mut self.edges[src]);
-        let dst_e = &mut self.edges[dst];
-        dst_e.append(&mut src_e);
-        for v in dst_e.iter_mut() {
-            *v = self.vertices.get_compress(*v);
-        }
-        dst_e.sort_unstable();
-
-        // delete degenerate edges
-        dst_e.retain(|&e1| self.vertices.get(e1) != dst);
+        self.edges[dst].append(&mut src_e);
+        self.edges[dst].retain(|&e1| self.vertices.get_compress(e1) != dst);
+        self.edges[dst].sort_unstable_by_key(|e1| self.vertices.get_compress(*e1));
+        self.edges[dst].dedup_by_key(|e1| self.vertices.get(*e1));
     }
     pub fn merged_vertices(&self, v0: usize) -> impl Iterator<Item = usize> + '_ {
         self.inv_map.merged(v0)
@@ -294,9 +287,9 @@ impl<T: Copy> CollapsibleManifold<T> {
 
     /// All edges in this manifold mesh with v0-v1 in sorted order.
     pub fn ord_edges(&self) -> impl Iterator<Item = [usize; 2]> + '_ {
-        self.edges
-            .iter()
-            .enumerate()
-            .flat_map(|(src, dsts)| dsts.iter().map(move |&dst| std::cmp::minmax(src, dst)))
+        self.edges.iter().enumerate().flat_map(move |(src, dsts)| {
+            dsts.iter()
+                .map(move |&dst| minmax(src, self.vertices.get(dst)))
+        })
     }
 }

@@ -8,7 +8,7 @@
 
 pub type F = f32;
 
-pub mod sym;
+//pub mod sym;
 
 pub mod manifold;
 
@@ -16,5 +16,5 @@ mod vec;
 pub use vec::*;
 
 pub mod inv_map;
+pub mod quad;
 pub mod union_find;
-pub mod vec_of_arrays;
