@@ -145,7 +145,6 @@ fn main() {
                 continue;
             };
 
-            /*
             let [scaf0, scaf1] = get_scaffolds!(new_quad, [s0, s1]);
 
             // here also need to compute new optimal position for all 4 vertices.
@@ -161,8 +160,6 @@ fn main() {
             };
 
             let scaffold_area = scaf_area(scaf0, [b, s0, x]) + scaf_area(scaf1, [a, s1, y]);
-            */
-            let scaffold_area = 0.;
 
             let new_plane = Plane::new_from_quad(new_quad.map(|q| mesh.v[q]));
 
@@ -219,6 +216,7 @@ fn main() {
         };
 
         /*
+        */
         let [scaf0, scaf1] = get_scaffolds!(nq, [s0, s1]);
 
         let scaf0_e = [minmax(b, s0), minmax(s0, x), minmax(x, b)];
@@ -238,7 +236,6 @@ fn main() {
                 ScaffoldKind::Deleting(_) => assert!(scaffolds.remove(&e).is_some()),
             }
         }
-        */
 
         m.merge(f0, f1, |_, dst| *dst = nq);
         assert!(m.deleted(f0));
@@ -246,8 +243,6 @@ fn main() {
         for adj in m.vertex_adj(f1) {
             add_edge!(adj, f1);
         }
-        // TODO if we delete a scaffold we need to update faces which related to the scaffold as
-        // well?
     }
 
     assert_eq!(scaffolds.len() % 3, 0);
@@ -256,6 +251,7 @@ fn main() {
         m.num_vertices(),
         scaffolds.len() / 3
     );
+    /*
     for [f0, f1] in m.ord_edges() {
         assert!(!m.deleted(f0));
         assert!(!m.deleted(f1));
@@ -270,6 +266,7 @@ fn main() {
             todo!();
         }
     }
+    */
 
     let out = File::create(args.output).unwrap();
     let mut out = BufWriter::new(out);
