@@ -6,7 +6,7 @@ use pars3d::obj;
 use priority_queue::PriorityQueue;
 
 use quad_collapse::manifold::{CollapsibleManifold, EdgeKind};
-use quad_collapse::{add, cross, kmul, normalize, poly_area, quad_area, sub, tri_area, F};
+use quad_collapse::{poly_area, quad_area, tri_area, F};
 
 use ordered_float::NotNan;
 
@@ -71,6 +71,7 @@ fn main() {
 
     // map from each edge to a scaffolds on that edge if it exists
     let mut scaffolds: HashMap<[usize; 2], [usize; 3]> = HashMap::new();
+    // TODO also need to account for boundary edges to not scaffold for them.
 
     let mut pq: PriorityQueue<FaceMerge, NotNan<F>> =
         PriorityQueue::with_capacity(m.num_vertices());
@@ -119,7 +120,7 @@ fn main() {
             let new_quad_area = quad_area(new_quad.map(|q| mesh.v[q]));
 
             // need to add area of new scaffolds, and delete area of removed scaffolds.
-            let cost = original_total_area - (new_quad_area + scaffold_area);
+            let cost = original_total_area - new_quad_area - scaffold_area;
             let cost = cost.abs();
             assert!(cost.is_finite());
 
@@ -172,10 +173,7 @@ fn main() {
         let scaf1_e = [minmax(a, s1), minmax(s1, y), minmax(y, a)];
         for e in scaf1_e {
             match scaf1 {
-                None => assert!(
-                    scaffolds.insert(e, [a, s1, y]).is_none(),
-                    "q0={q0:?} q1={q1:?} a={a} b={b} s0={s0} s1={s1} x={x} y={y}"
-                ),
+                None => assert!(scaffolds.insert(e, [a, s1, y]).is_none()),
                 Some(_) => assert!(scaffolds.remove(&e).is_some()),
             }
         }
