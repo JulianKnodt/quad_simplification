@@ -69,6 +69,9 @@ fn main() {
         m.add_face(&vf);
     }
 
+    // map from each edge to a scaffolds on that edge if it exists
+    let mut scaffolds: HashMap<[usize; 2], [usize; 3]> = HashMap::new();
+
     let mut pq: PriorityQueue<FaceMerge, NotNan<F>> =
         PriorityQueue::with_capacity(m.num_vertices());
 
@@ -85,6 +88,28 @@ fn main() {
                 continue;
             };
 
+            let scaf0 = scaffolds.get(&minmax(b, s0));
+            if scaf0 != scaffolds.get(&minmax(s0, x)) {
+                continue;
+            }
+
+            let scaf1 = scaffolds.get(&minmax(a, s1));
+            if scaf1 != scaffolds.get(&minmax(s1, y)) {
+                continue;
+            }
+
+            let scaf_area = |scaf: Option<_>, vis: [usize; 3]| {
+                let [v0, v1, v2] = vis.map(|vi| mesh.v[vi]);
+                let area = tri_area(v0, v1, v2);
+                if scaf.is_some() {
+                    -area
+                } else {
+                    area
+                }
+            };
+
+            let scaffold_area = scaf_area(scaf0, [b, s0, x]) + scaf_area(scaf1, [a, s1, y]);
+
             let original_total_area = m
                 .merged_vertices(f0)
                 .chain(m.merged_vertices(f1))
@@ -93,16 +118,8 @@ fn main() {
 
             let new_quad_area = quad_area(new_quad.map(|q| mesh.v[q]));
 
-            let scaffold_tris = [[b, s0, y], [a, s1, x]];
-            let scaffold_area = scaffold_tris
-                .into_iter()
-                .map(|vis| {
-                    let [v0, v1, v2] = vis.map(|vi| mesh.v[vi]);
-                    tri_area(v0, v1, v2)
-                })
-                .sum::<F>();
-
-            let cost = (original_total_area) - (new_quad_area + scaffold_area);
+            // need to add area of new scaffolds, and delete area of removed scaffolds.
+            let cost = original_total_area - (new_quad_area + scaffold_area);
             let cost = cost.abs();
             assert!(cost.is_finite());
 
@@ -128,11 +145,40 @@ fn main() {
         let q0 = *m.get(f0);
         let q1 = *m.get(f1);
 
-        let Some((nq, _shared)) = merged_quad(q0, q1) else {
+        let Some((nq @ [a, b, x, y], [s0, s1])) = merged_quad(q0, q1) else {
             continue;
         };
 
-        // also need to add scaffolding triangles here?
+        let scaf0 = scaffolds.get(&minmax(b, s0));
+        if scaf0 != scaffolds.get(&minmax(s0, x)) {
+            continue;
+        }
+        let scaf0 = scaf0.copied();
+
+        let scaf1 = scaffolds.get(&minmax(a, s1));
+        if scaf1 != scaffolds.get(&minmax(s1, y)) {
+            continue;
+        }
+        let scaf1 = scaf1.copied();
+
+        let scaf0_e = [minmax(b, s0), minmax(s0, x), minmax(x, b)];
+        for e in scaf0_e {
+            match scaf0 {
+                None => assert!(scaffolds.insert(e, [b, s0, x]).is_none()),
+                Some(_) => assert!(scaffolds.remove(&e).is_some()),
+            }
+        }
+
+        let scaf1_e = [minmax(a, s1), minmax(s1, y), minmax(y, a)];
+        for e in scaf1_e {
+            match scaf1 {
+                None => assert!(
+                    scaffolds.insert(e, [a, s1, y]).is_none(),
+                    "q0={q0:?} q1={q1:?} a={a} b={b} s0={s0} s1={s1} x={x} y={y}"
+                ),
+                Some(_) => assert!(scaffolds.remove(&e).is_some()),
+            }
+        }
 
         m.merge(f0, f1, |_, _| nq);
         assert!(m.deleted(f0));
@@ -153,6 +199,16 @@ fn main() {
         let [x, y, z, w] = xyzw.map(|i| i + 1);
         writeln!(out, "f {x} {y} {z} {w}").unwrap();
     }
+
+    for (&[e0, e1], vis) in scaffolds.iter() {
+        if minmax(e0, e1) != minmax(vis[0], vis[1]) {
+            continue;
+        }
+        let [i, j, k] = vis.map(|vi| vi + 1);
+        writeln!(out, "f {i} {j} {k}").unwrap();
+    }
+    /*
+     */
 }
 
 /// Computes the quad merged together, along with the shared edge
@@ -164,7 +220,19 @@ pub fn merged_quad(
         (
             [a, b, s0, s1] | [s1, a, b, s0] | [s0, s1, a, b] | [b, s0, s1, a],
             [x, y, t0, t1] | [t1, x, y, t0] | [t0, t1, x, y] | [y, t0, t1, x],
-        ) if minmax(s0, s1) == minmax(t0, t1) => Some(([a, b, x, y], minmax(t0, t1))),
+        ) if minmax(s0, s1) == minmax(t0, t1) => {
+            assert_ne!(a, t0);
+            assert_ne!(b, t0);
+            assert_ne!(x, t0);
+            assert_ne!(y, t0);
+
+            assert_ne!(a, t1);
+            assert_ne!(b, t1);
+            assert_ne!(x, t1);
+            assert_ne!(y, t1);
+
+            Some(([a, b, x, y], [s0, s1]))
+        }
 
         _ => None,
     }

@@ -38,6 +38,12 @@ impl FaceKind {
             v => Self::Polygon(v.to_vec()),
         }
     }
+    pub fn has_edge(&self, [e0, e1]: [usize; 2]) -> bool {
+        let s = self.as_slice();
+        (0..s.len()).any(|i| {
+            (s[i] == e0 && s[(i + 1) % s.len()] == e1) || (s[i] == e1 && s[(i + 1) % s.len()] == e0)
+        })
+    }
     pub fn remap(&mut self, map: impl Fn(usize) -> usize) {
         match self {
             FaceKind::Degenerate => return,
